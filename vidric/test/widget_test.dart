@@ -40,5 +40,20 @@ void main() {
     expect(find.text('TILT MODE'), findsOneWidget);
     expect(find.text('RECENTER'), findsOneWidget);
     expect(find.text('0.0°'), findsOneWidget);
+
+    // Tap Settings Gear Icon to open SettingsScreen
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pumpAndSettle();
+
+    // Verify SettingsScreen opens
+    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('SELECT MODE'), findsOneWidget);
+    expect(find.text('CUSTOMIZATION'), findsOneWidget);
+
+    // Tap KEMBALI to return to ControllerScreen
+    await tester.tap(find.text('KEMBALI'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ControllerScreen), findsOneWidget);
   });
 }

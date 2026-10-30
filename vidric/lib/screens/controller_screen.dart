@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/control_packet.dart';
+import '../services/settings_service.dart';
 import '../widgets/steering_wheel_widget.dart';
 import '../widgets/analog_pedal_widget.dart';
 import '../widgets/h_pattern_shifter_widget.dart';
 import '../widgets/nav_cluster_widget.dart';
+import 'settings_screen.dart';
 
 enum CockpitMode {
   steeringWheel,
@@ -54,6 +56,27 @@ class _ControllerScreenState extends State<ControllerScreen> {
   void initState() {
     super.initState();
     _lockLandscapeAndImmersive();
+    _syncWithSettings();
+    SettingsService.instance.settings.addListener(_onSettingsUpdated);
+  }
+
+  @override
+  void dispose() {
+    SettingsService.instance.settings.removeListener(_onSettingsUpdated);
+    super.dispose();
+  }
+
+  void _syncWithSettings() {
+    final mode = SettingsService.instance.current.cockpitMode;
+    _activeMode = mode == 'tilt' ? CockpitMode.tilt : CockpitMode.steeringWheel;
+  }
+
+  void _onSettingsUpdated() {
+    if (mounted) {
+      setState(() {
+        _syncWithSettings();
+      });
+    }
   }
 
   void _lockLandscapeAndImmersive() {
@@ -113,11 +136,10 @@ class _ControllerScreenState extends State<ControllerScreen> {
 
   void _toggleCockpitMode() {
     HapticFeedback.mediumImpact();
-    setState(() {
-      _activeMode = _activeMode == CockpitMode.steeringWheel
-          ? CockpitMode.tilt
-          : CockpitMode.steeringWheel;
-    });
+    final newMode = _activeMode == CockpitMode.steeringWheel
+        ? 'tilt'
+        : 'steeringWheel';
+    SettingsService.instance.setCockpitMode(newMode);
   }
 
   void _recenterZero() {
@@ -320,11 +342,9 @@ class _ControllerScreenState extends State<ControllerScreen> {
             InkWell(
               onTap: () {
                 HapticFeedback.lightImpact();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Settings Screen (Master-Detail) terhubung pada Issue #7.'),
-                    duration: Duration(milliseconds: 900),
-                    backgroundColor: Color(0xFF1B2836),
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const SettingsScreen(),
                   ),
                 );
               },

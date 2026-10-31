@@ -28,6 +28,7 @@ void main() {
 
       // Master navigation items
       expect(find.text('SELECT MODE'), findsOneWidget);
+      expect(find.text('CONNECTION'), findsOneWidget);
       expect(find.text('CUSTOMIZATION'), findsOneWidget);
       expect(find.text('STEERING'), findsOneWidget);
       expect(find.text('PEDALS'), findsOneWidget);
@@ -59,6 +60,30 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(SettingsService.instance.current.cockpitMode, equals('tilt'));
+    });
+
+    testWidgets('navigates to CONNECTION tab and shows dedicated IP and UDP controls', (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(1280, 720);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() => tester.view.resetPhysicalSize());
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: SettingsScreen(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tap CONNECTION in master sidebar
+      await tester.tap(find.text('CONNECTION'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('PENGATURAN KONEKSI WI-FI UDP'), findsOneWidget);
+      expect(find.text('ALAMAT IP SERVER PC:'), findsOneWidget);
+      expect(find.text('PORT UDP:'), findsOneWidget);
+      expect(find.text('SCAN QR'), findsOneWidget);
+      expect(find.text('TEST PING'), findsOneWidget);
+      expect(find.text('METRIK TRANSMISI REAL-TIME'), findsOneWidget);
     });
 
     testWidgets('navigates to CUSTOMIZATION tab and shows live sensor tester', (WidgetTester tester) async {

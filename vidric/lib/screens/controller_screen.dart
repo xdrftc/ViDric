@@ -9,7 +9,6 @@ import '../widgets/analog_pedal_widget.dart';
 import '../widgets/h_pattern_shifter_widget.dart';
 import '../widgets/nav_cluster_widget.dart';
 import '../widgets/artificial_horizon_gauge_widget.dart';
-import '../widgets/connection_modal_widget.dart';
 import 'settings_screen.dart';
 
 enum CockpitMode {
@@ -317,7 +316,13 @@ class _ControllerScreenState extends State<ControllerScreen> {
                 return InkWell(
                   onTap: () {
                     HapticFeedback.lightImpact();
-                    ConnectionModalWidget.show(context);
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(
+                          initialTab: SettingsTab.connection,
+                        ),
+                      ),
+                    );
                   },
                   borderRadius: BorderRadius.circular(16),
                   child: Container(

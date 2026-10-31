@@ -159,3 +159,4 @@ class _QrScannerDialogState extends State<QrScannerDialog> {
     );
   }
 }
+

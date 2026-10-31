@@ -63,16 +63,18 @@ void main() {
 
     expect(find.byType(ControllerScreen), findsOneWidget);
 
-    // Tap UDP OFF indicator to open ConnectionModalWidget
+    // Tap UDP OFF indicator to open SettingsScreen with dedicated CONNECTION tab
     expect(find.text('UDP OFF'), findsOneWidget);
     await tester.tap(find.text('UDP OFF'));
     await tester.pumpAndSettle();
 
-    expect(find.text('KONEKSI PC COMPANION (WI-FI UDP)'), findsOneWidget);
-    expect(find.text('HUBUNGKAN KE PC (50 HZ)'), findsOneWidget);
+    expect(find.text('SETTINGS'), findsOneWidget);
+    expect(find.text('PENGATURAN KONEKSI WI-FI UDP'), findsOneWidget);
+    expect(find.text('ALAMAT IP SERVER PC:'), findsOneWidget);
+    expect(find.text('HUBUNGKAN KE PC COMPANION (50 HZ)'), findsOneWidget);
 
-    // Tap TUTUP to close modal
-    await tester.tap(find.text('TUTUP'));
+    // Tap KEMBALI to return to ControllerScreen
+    await tester.tap(find.text('KEMBALI'));
     await tester.pumpAndSettle();
 
     expect(find.byType(ControllerScreen), findsOneWidget);

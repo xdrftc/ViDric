@@ -4,11 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/app_settings.dart';
 import '../services/settings_service.dart';
+import '../services/udp_service.dart';
+import '../widgets/qr_scanner_dialog.dart';
 import '../widgets/connection_modal_widget.dart';
 
 /// Layanan Navigasi Tab Pengaturan (Master List).
 enum SettingsTab {
   selectMode,
+  connection,
   customization,
   steering,
   pedals,
@@ -48,6 +51,14 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   late SettingsTab _activeTab;
   final SettingsService _service = SettingsService.instance;
+  final UdpService _udpService = UdpService.instance;
+
+  // Controller Input Koneksi UDP
+  late TextEditingController _ipController;
+  late TextEditingController _portController;
+  bool _isTestingPing = false;
+  String? _pingResult;
+  bool _pingSuccess = false;
 
   // Variabel untuk Live Hardware Sensor Tester
   Timer? _sensorTimer;
@@ -63,13 +74,80 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     _activeTab = widget.initialTab;
+    _ipController = TextEditingController(text: _udpService.targetIp);
+    _portController = TextEditingController(text: _udpService.targetPort.toString());
     _startLiveSensorStream();
   }
 
   @override
   void dispose() {
     _sensorTimer?.cancel();
+    _ipController.dispose();
+    _portController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openQrScanner() async {
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) => const QrScannerDialog(),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _ipController.text = result['ip'] ?? _ipController.text;
+        _portController.text = (result['port'] ?? 5005).toString();
+      });
+      HapticFeedback.mediumImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✅ QR Code berhasil dipindai: ${_ipController.text}:${_portController.text}'),
+          backgroundColor: const Color(0xFF1B2836),
+          duration: const Duration(milliseconds: 1200),
+        ),
+      );
+    }
+  }
+
+  Future<void> _runPingTest() async {
+    final ip = _ipController.text.trim();
+    final port = int.tryParse(_portController.text.trim()) ?? 5005;
+
+    setState(() {
+      _isTestingPing = true;
+      _pingResult = null;
+    });
+
+    final success = await _udpService.testPing(ip, port);
+
+    if (mounted) {
+      setState(() {
+        _isTestingPing = false;
+        _pingSuccess = success;
+        _pingResult = success
+            ? 'PING BERHASIL (Target PC Merespons)'
+            : 'PING TIMEOUT (Pastikan PC & Ponsel satu Wi-Fi)';
+      });
+    }
+  }
+
+  Future<void> _toggleConnection() async {
+    HapticFeedback.mediumImpact();
+    if (_udpService.isConnected) {
+      _udpService.disconnect();
+    } else {
+      final ip = _ipController.text.trim();
+      final port = int.tryParse(_portController.text.trim()) ?? 5005;
+      final success = await _udpService.connect(ip: ip, port: port);
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('❌ Gagal terhubung ke IP target. Periksa kembali alamat IP.'),
+            backgroundColor: Color(0xFF8B1E1E),
+          ),
+        );
+      }
+    }
   }
 
   void _startLiveSensorStream() {
@@ -222,6 +300,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
             label: 'SELECT MODE',
             subtitle: settings.cockpitMode == 'steeringWheel' ? 'STEER MODE' : 'TILT MODE',
           ),
+          ValueListenableBuilder<NetworkMetrics>(
+            valueListenable: _udpService.metrics,
+            builder: (context, net, _) {
+              return _buildMasterItem(
+                tab: SettingsTab.connection,
+                label: 'CONNECTION',
+                subtitle: net.isConnected ? '50 Hz ONLINE' : 'UDP DISCONNECTED',
+              );
+            },
+          ),
           _buildMasterItem(
             tab: SettingsTab.customization,
             label: 'CUSTOMIZATION',
@@ -309,6 +397,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     switch (_activeTab) {
       case SettingsTab.selectMode:
         return _buildTabSelectMode(settings);
+      case SettingsTab.connection:
+        return _buildTabConnection();
       case SettingsTab.customization:
         return _buildTabCustomization(settings);
       case SettingsTab.steering:
@@ -476,7 +566,349 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ===========================================================================
-  // 2. TAB: CUSTOMIZATION (SETTING_CUSTOMIZATION + Live Sensor Tester)
+  // 2. TAB: CONNECTION (SETTING_CONNECTION)
+  // ===========================================================================
+  Widget _buildTabConnection() {
+    return ValueListenableBuilder<NetworkMetrics>(
+      valueListenable: _udpService.metrics,
+      builder: (context, metrics, _) {
+        final isConnected = metrics.isConnected;
+
+        return ListView(
+          padding: const EdgeInsets.all(20),
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: isConnected ? const Color(0xFF00E676) : const Color(0xFFFF1744),
+                    boxShadow: isConnected
+                        ? [
+                            const BoxShadow(
+                              color: Color(0xFF00E676),
+                              blurRadius: 8,
+                              spreadRadius: 1,
+                            ),
+                          ]
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'PENGATURAN KONEKSI WI-FI UDP',
+                  style: TextStyle(
+                    color: Color(0xFFE0E6ED),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Transmisi paket telemetri 50 Hz ke PC Companion dan driver vJoy Virtual Joystick.',
+              style: TextStyle(color: Color(0xFF7E93A8), fontSize: 11),
+            ),
+            const SizedBox(height: 16),
+
+            // Form Target PC
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF131B24),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF223245)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      // Input IP
+                      Expanded(
+                        flex: 3,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'ALAMAT IP SERVER PC:',
+                              style: TextStyle(color: Color(0xFF8B9FB3), fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              height: 38,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF16212D),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFF26394D)),
+                              ),
+                              child: TextField(
+                                controller: _ipController,
+                                style: const TextStyle(color: Color(0xFF00E5FF), fontFamily: 'monospace', fontSize: 12),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  hintText: 'Contoh: 192.168.1.10',
+                                  hintStyle: TextStyle(color: Color(0xFF486178), fontSize: 11),
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Input Port
+                      Expanded(
+                        flex: 1,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'PORT UDP:',
+                              style: TextStyle(color: Color(0xFF8B9FB3), fontSize: 10, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              height: 38,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF16212D),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFF26394D)),
+                              ),
+                              child: TextField(
+                                controller: _portController,
+                                keyboardType: TextInputType.number,
+                                style: const TextStyle(color: Color(0xFF00E5FF), fontFamily: 'monospace', fontSize: 12),
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  isDense: true,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Tombol Scan QR
+                      Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: InkWell(
+                          onTap: _openQrScanner,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            height: 38,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1C2B3A),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: const Color(0xFF00E5FF)),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.qr_code_scanner, color: Color(0xFF00E5FF), size: 16),
+                                SizedBox(width: 6),
+                                Text(
+                                  'SCAN QR',
+                                  style: TextStyle(
+                                    color: Color(0xFF00E5FF),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 0.8,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // Ping & Status
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        onPressed: _isTestingPing ? null : _runPingTest,
+                        icon: _isTestingPing
+                            ? const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(strokeWidth: 1.5, color: Color(0xFF00E5FF)),
+                              )
+                            : const Icon(Icons.network_check, size: 14, color: Color(0xFF7E93A8)),
+                        label: const Text(
+                          'TEST PING',
+                          style: TextStyle(color: Color(0xFFD4E0EC), fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFF26394D)),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      if (_pingResult != null)
+                        Expanded(
+                          child: Text(
+                            _pingResult!,
+                            style: TextStyle(
+                              color: _pingSuccess ? const Color(0xFF00E676) : const Color(0xFFFFB300),
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Kartu Metrik Live Transmisi
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF131B24),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF223245)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'METRIK TRANSMISI REAL-TIME',
+                    style: TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+                  ),
+                  const SizedBox(height: 10),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildMetricBadge(
+                          'STATUS',
+                          metrics.status.name.toUpperCase(),
+                          isConnected ? const Color(0xFF00E676) : const Color(0xFFFF1744),
+                        ),
+                        const SizedBox(width: 24),
+                        _buildMetricBadge(
+                          'TX RATE (HZ)',
+                          '${metrics.packetsPerSecond.toStringAsFixed(1)} Hz',
+                          const Color(0xFF00E5FF),
+                        ),
+                        const SizedBox(width: 24),
+                        _buildMetricBadge(
+                          'PAKET TERKIRIM',
+                          metrics.packetsSent.toString(),
+                          const Color(0xFFE0E6ED),
+                        ),
+                        const SizedBox(width: 24),
+                        _buildMetricBadge(
+                          'LATENSI SOKET',
+                          '${metrics.latencyMs} ms',
+                          const Color(0xFF00E676),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Tombol Hubungkan / Putuskan
+            Align(
+              alignment: Alignment.centerLeft,
+              child: ElevatedButton.icon(
+                onPressed: _toggleConnection,
+                icon: Icon(
+                  isConnected ? Icons.link_off : Icons.link,
+                  size: 16,
+                  color: isConnected ? Colors.white : const Color(0xFF0E141B),
+                ),
+                label: Text(
+                  isConnected ? 'PUTUSKAN KONEKSI' : 'HUBUNGKAN KE PC COMPANION (50 HZ)',
+                  style: TextStyle(
+                    color: isConnected ? Colors.white : const Color(0xFF0E141B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isConnected ? const Color(0xFFB71C1C) : const Color(0xFF00E5FF),
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Kartu Watchdog Failsafe
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF131B24),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF223245)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.security, size: 16, color: Color(0xFF00E676)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Failsafe Watchdog Aktif (300 ms): PC otomatis mereset seluruh sumbu ke netral jika koneksi terganggu.',
+                      style: TextStyle(color: Color(0xFF8B9FB3), fontSize: 10.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildMetricBadge(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(color: Color(0xFF7E93A8), fontSize: 9.5, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 13,
+            fontFamily: 'monospace',
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ===========================================================================
+  // 3. TAB: CUSTOMIZATION (SETTING_CUSTOMIZATION + Live Sensor Tester)
   // ===========================================================================
   Widget _buildTabCustomization(AppSettings settings) {
     return ListView(

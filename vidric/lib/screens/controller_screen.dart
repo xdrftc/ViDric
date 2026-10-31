@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../models/app_settings.dart';
 import '../models/control_packet.dart';
+import '../services/custom_button_service.dart';
 import '../services/settings_service.dart';
 import '../services/tilt_sensor_service.dart';
 import '../services/udp_service.dart';
@@ -9,6 +11,7 @@ import '../widgets/analog_pedal_widget.dart';
 import '../widgets/h_pattern_shifter_widget.dart';
 import '../widgets/nav_cluster_widget.dart';
 import '../widgets/artificial_horizon_gauge_widget.dart';
+import '../widgets/dynamic_button_layer.dart';
 import 'settings_screen.dart';
 
 enum CockpitMode {
@@ -63,6 +66,7 @@ class _ControllerScreenState extends State<ControllerScreen> {
     SettingsService.instance.settings.addListener(_onSettingsUpdated);
     TiltSensorService.instance.telemetry.addListener(_onTiltTelemetry);
     TiltSensorService.instance.startListening();
+    CustomButtonService.instance.init();
     UdpService.instance.init();
     UdpService.instance.packetProvider = buildCurrentPacket;
   }
@@ -192,6 +196,16 @@ class _ControllerScreenState extends State<ControllerScreen> {
     });
   }
 
+  void _onCustomButtonChanged(int vjoyButton, bool isPressed) {
+    setState(() {
+      if (isPressed) {
+        _activeButtons.add(vjoyButton);
+      } else {
+        _activeButtons.remove(vjoyButton);
+      }
+    });
+  }
+
   ControlPacket buildCurrentPacket() {
     _sequenceNumber++;
     return ControlPacket(
@@ -225,6 +239,21 @@ class _ControllerScreenState extends State<ControllerScreen> {
                 child: _activeMode == CockpitMode.steeringWheel
                     ? _buildSteeringModeLayout()
                     : _buildTiltModeLayout(),
+              ),
+
+              // 3. Lapisan Tombol Kustom Dinamis (Dynamic Draggable Button Box)
+              Positioned.fill(
+                top: 48,
+                child: ValueListenableBuilder<AppSettings>(
+                  valueListenable: SettingsService.instance.settings,
+                  builder: (context, settings, _) {
+                    return DynamicButtonLayer(
+                      opacity: settings.buttonOpacity,
+                      scale: settings.buttonScale,
+                      onButtonStateChanged: _onCustomButtonChanged,
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -412,6 +441,54 @@ class _ControllerScreenState extends State<ControllerScreen> {
                   ),
                 ),
               ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // Edit Layout Button (Drag & Drop Mode)
+            ValueListenableBuilder<bool>(
+              valueListenable: CustomButtonService.instance.isEditMode,
+              builder: (context, isEditing, _) {
+                return InkWell(
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    CustomButtonService.instance.toggleEditMode();
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    decoration: BoxDecoration(
+                      color: isEditing ? const Color(0xFF00E5FF).withValues(alpha: 0.2) : const Color(0xFF222E3A),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isEditing ? const Color(0xFF00E5FF) : const Color(0xFF334455),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.dashboard_customize_rounded,
+                          size: 15,
+                          color: isEditing ? const Color(0xFF00E5FF) : const Color(0xFFD4E0EC),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          isEditing ? 'EDITING' : 'LAYOUT',
+                          style: TextStyle(
+                            color: isEditing ? const Color(0xFF00E5FF) : const Color(0xFFD4E0EC),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
 
             const SizedBox(width: 8),

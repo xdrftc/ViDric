@@ -3,10 +3,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/app_settings.dart';
+import '../models/custom_button_model.dart';
+import '../models/layout_profile.dart';
+import '../services/custom_button_service.dart';
 import '../services/settings_service.dart';
 import '../services/udp_service.dart';
 import '../widgets/qr_scanner_dialog.dart';
 import '../widgets/connection_modal_widget.dart';
+import '../widgets/add_edit_button_dialog.dart';
 
 /// Layanan Navigasi Tab Pengaturan (Master List).
 enum SettingsTab {
@@ -916,6 +920,81 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _openAddCustomButtonDialog() async {
+    final newBtn = await showDialog<CustomButtonModel>(
+      context: context,
+      builder: (context) => const AddEditButtonDialog(),
+    );
+    if (newBtn != null) {
+      await CustomButtonService.instance.addButton(newBtn);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Tombol "${newBtn.label}" (vJoy ${newBtn.vjoyButton}) berhasil ditambahkan ke kokpit.'),
+            backgroundColor: const Color(0xFF1B2836),
+            duration: const Duration(milliseconds: 1200),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _promptCreateProfile() async {
+    final controller = TextEditingController();
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF131D27),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: const BorderSide(color: Color(0xFF283B4E)),
+        ),
+        title: const Text(
+          'BUAT PROFIL LAYOUT BARU',
+          style: TextStyle(color: Color(0xFFE0E6ED), fontSize: 13, fontWeight: FontWeight.bold),
+        ),
+        content: TextField(
+          controller: controller,
+          style: const TextStyle(color: Color(0xFF00E5FF), fontSize: 13),
+          decoration: InputDecoration(
+            hintText: 'Contoh: ETS2 Truk, Assetto Corsa',
+            hintStyle: const TextStyle(color: Color(0xFF455A64), fontSize: 12),
+            filled: true,
+            fillColor: const Color(0xFF18232F),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('BATAL', style: TextStyle(color: Color(0xFF7E93A8))),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF00E5FF),
+              foregroundColor: const Color(0xFF0D141C),
+            ),
+            child: const Text('BUAT'),
+          ),
+        ],
+      ),
+    );
+
+    if (name != null && name.trim().isNotEmpty) {
+      await CustomButtonService.instance.createProfile(name.trim());
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('📁 Profil "$name" berhasil dibuat.'),
+            backgroundColor: const Color(0xFF1B2836),
+            duration: const Duration(milliseconds: 1000),
+          ),
+        );
+      }
+    }
+  }
+
   // ===========================================================================
   // 3. TAB: CUSTOMIZATION (SETTING_CUSTOMIZATION + Live Sensor Tester)
   // ===========================================================================
@@ -937,6 +1016,204 @@ class _SettingsScreenState extends State<SettingsScreen> {
           'Atur transparansi, skala ukuran tombol, serta uji kalibrasi sensor perangkat secara real-time.',
           style: TextStyle(color: Color(0xFF7E93A8), fontSize: 11),
         ),
+        const SizedBox(height: 16),
+
+        // 1. Modus Edit Layar Penuh & Tambah Tombol Cepat
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF131B24),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF223245)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.dashboard_customize_rounded, size: 16, color: Color(0xFF00E5FF)),
+                  SizedBox(width: 8),
+                  Text(
+                    'MODUS EDIT TATA LETAK (ON-SCREEN DRAG & DROP)',
+                    style: TextStyle(
+                      color: Color(0xFF00E5FF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Masuk ke layar kokpit interaktif untuk menggeser posisi tombol bebas ke koordinat mana pun dengan panduan kisi Snap to Grid.',
+                style: TextStyle(color: Color(0xFF7E93A8), fontSize: 10.5),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        HapticFeedback.mediumImpact();
+                        CustomButtonService.instance.toggleEditMode(true);
+                        Navigator.of(context).pop();
+                      },
+                      icon: const Icon(Icons.touch_app_rounded, size: 15),
+                      label: const Text(
+                        'BUKA EDITOR LAYAR PENUH',
+                        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00E5FF),
+                        foregroundColor: const Color(0xFF0D141C),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _openAddCustomButtonDialog,
+                      icon: const Icon(Icons.add_circle_outline, size: 15, color: Color(0xFF00E676)),
+                      label: const Text(
+                        'TAMBAH TOMBOL BARU (+)',
+                        style: TextStyle(color: Color(0xFF00E676), fontSize: 10.5, fontWeight: FontWeight.bold),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: Color(0xFF1E4631)),
+                        padding: const EdgeInsets.symmetric(vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // 2. Profil Manajer Tata Letak (Profile Manager)
+        ValueListenableBuilder<LayoutProfile>(
+          valueListenable: CustomButtonService.instance.activeProfile,
+          builder: (context, activeProf, _) {
+            return ValueListenableBuilder<List<LayoutProfile>>(
+              valueListenable: CustomButtonService.instance.allProfiles,
+              builder: (context, allProfs, _) {
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF131B24),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF223245)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.folder_shared_rounded, size: 16, color: Color(0xFFFFB300)),
+                          SizedBox(width: 8),
+                          const Text(
+                            'MANAJER PROFIL TATA LETAK',
+                            style: TextStyle(
+                              color: Color(0xFFFFB300),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.0,
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${activeProf.buttons.length} Tombol Terpasang',
+                            style: const TextStyle(
+                              color: Color(0xFF7E93A8),
+                              fontSize: 10,
+                              fontFamily: 'monospace',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Container(
+                              height: 38,
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF18232F),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: const Color(0xFF283B4E)),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: activeProf.id,
+                                  isExpanded: true,
+                                  dropdownColor: const Color(0xFF18232F),
+                                  icon: const Icon(Icons.arrow_drop_down, color: Color(0xFFFFB300)),
+                                  style: const TextStyle(
+                                    color: Color(0xFFE0E6ED),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  items: allProfs.map((p) {
+                                    return DropdownMenuItem<String>(
+                                      value: p.id,
+                                      child: Text(p.name),
+                                    );
+                                  }).toList(),
+                                  onChanged: (id) {
+                                    if (id != null) {
+                                      CustomButtonService.instance.switchProfile(id);
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            onPressed: _promptCreateProfile,
+                            icon: const Icon(Icons.add, size: 18, color: Color(0xFF00E5FF)),
+                            tooltip: 'Buat Profil Baru',
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFF1B2836),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            onPressed: () {
+                              CustomButtonService.instance.resetToDefaultProfile();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Profil layout dikembalikan ke standar awal.'),
+                                  duration: Duration(milliseconds: 900),
+                                  backgroundColor: Color(0xFF1B2836),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.refresh, size: 18, color: Color(0xFF7E93A8)),
+                            tooltip: 'Reset Standar',
+                            style: IconButton.styleFrom(
+                              backgroundColor: const Color(0xFF1B2836),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+
         const SizedBox(height: 16),
 
         // Slider Opacity & Scale
@@ -1121,6 +1398,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
               _buildBindingRow('Navigasi Menu (< / >)', 'vJoy Button 10 / 11'),
               _buildBindingRow('Transmisi Manual Gigi 1-6', 'vJoy Button 12-17'),
               _buildBindingRow('Gigi Mundur (Reverse R)', 'vJoy Button 18'),
+              _buildBindingRow('Kamera Cockpit & Look', 'vJoy Button 20-23'),
+              const Divider(color: Color(0xFF1F2F40), height: 16),
+              const Text(
+                'TOMBOL KUSTOM AKTIF PENGGUNA:',
+                style: TextStyle(color: Color(0xFF7E93A8), fontSize: 9.5, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              ValueListenableBuilder<LayoutProfile>(
+                valueListenable: CustomButtonService.instance.activeProfile,
+                builder: (context, prof, _) {
+                  if (prof.buttons.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        'Belum ada tombol kustom terpasang. Tekan Tambah Tombol (+) di atas.',
+                        style: TextStyle(color: Color(0xFF55687A), fontSize: 10),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: prof.buttons.map((b) {
+                      final modeStr = b.isToggle ? 'Toggle' : 'Push';
+                      return _buildBindingRow('${b.label} ($modeStr)', 'vJoy Button ${b.vjoyButton}');
+                    }).toList(),
+                  );
+                },
+              ),
             ],
           ),
         ),

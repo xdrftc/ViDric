@@ -103,8 +103,22 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('KUSTOMISASI LAYOUT & BUTTON BOX'), findsOneWidget);
+      expect(find.text('MODUS EDIT TATA LETAK (ON-SCREEN DRAG & DROP)'), findsOneWidget);
+      expect(find.text('BUKA EDITOR LAYAR PENUH'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.text('LIVE HARDWARE SENSOR TESTER'),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text('LIVE HARDWARE SENSOR TESTER'), findsOneWidget);
       expect(find.text('STREAM 20 HZ'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.text('PANDUAN PEMETAAN VJOY (IN-GAME BINDING)'),
+        100,
+        scrollable: find.byType(Scrollable).last,
+      );
       expect(find.text('PANDUAN PEMETAAN VJOY (IN-GAME BINDING)'), findsOneWidget);
     });
 

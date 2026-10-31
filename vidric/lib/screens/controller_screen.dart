@@ -525,14 +525,14 @@ class _ControllerScreenState extends State<ControllerScreen> {
           ),
         ),
 
-        // 3. Right: H-Pattern Shifter, Handbrake & Gas/Brake Pedals
+        // 3. Right: H-Pattern Shifter above Brake, Handbrake above Gas (Wireframe 2x2 Grid)
         Expanded(
           flex: 4,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              // Shifter & Handbrake Column
+              // Column 1: H-Pattern Shifter on top, Brake Pedal directly below
               Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
@@ -541,38 +541,38 @@ class _ControllerScreenState extends State<ControllerScreen> {
                     activeGear: _activeGear,
                     onGearChanged: _onGearChanged,
                     width: 105,
-                    height: 135,
+                    height: 130,
                   ),
 
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
 
-                  // Handbrake Lever
-                  _buildHandbrakeLever(),
-                ],
-              ),
-
-              const SizedBox(width: 12),
-
-              // Pedals: Brake (horizontal) & Gas (vertical)
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
                   // Brake Pedal (rem)
                   AnalogPedalWidget(
                     label: 'BRAKE',
                     assetPath: 'assets/images/pedal_rem_tight.png',
                     activeColor: const Color(0xFFFF1744),
                     value: _brake,
-                    width: 78,
-                    height: 110,
+                    width: 82,
+                    height: 105,
                     onChanged: (val) {
                       setState(() {
                         _brake = val;
                       });
                     },
                   ),
+                ],
+              ),
 
-                  const SizedBox(width: 10),
+              const SizedBox(width: 12),
+
+              // Column 2: Handbrake Lever on top, Gas Pedal directly below
+              Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  // Handbrake Lever
+                  _buildHandbrakeLever(),
+
+                  const SizedBox(height: 8),
 
                   // Gas Pedal (gas)
                   AnalogPedalWidget(
@@ -650,17 +650,17 @@ class _ControllerScreenState extends State<ControllerScreen> {
           ),
         ),
 
-        // Right Bottom: Handbrake & Gas Pedal
+        // Right Bottom: Handbrake Lever above Gas Pedal (Wireframe Layout)
         Align(
           alignment: Alignment.bottomRight,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 6.0, right: 6.0),
-            child: Row(
+            child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 _buildHandbrakeLever(),
-                const SizedBox(width: 14),
+                const SizedBox(height: 10),
                 AnalogPedalWidget(
                   label: 'THROTTLE',
                   assetPath: 'assets/images/pedal_gas_tight.png',

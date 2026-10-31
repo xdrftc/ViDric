@@ -458,7 +458,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: _buildModeCard(
                     title: 'STEER MODE',
                     subtitle: 'Kemudikan menggunakan roda setir fotorealistik di layar. Akselerasi GPU 120 FPS dengan pegas pembalik otomatis (spring return).',
-                    icon: Icons.radio_button_checked_rounded,
+                    iconWidget: Image.asset(
+                      'assets/images/steering_wheel_cropped2.png',
+                      width: 38,
+                      height: 38,
+                      fit: BoxFit.contain,
+                    ),
                     isActive: settings.cockpitMode == 'steeringWheel',
                     onTap: () {
                       _service.setCockpitMode('steeringWheel');
@@ -477,7 +482,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildModeCard({
     required String title,
     required String subtitle,
-    required IconData icon,
+    IconData? icon,
+    Widget? iconWidget,
     required bool isActive,
     required VoidCallback onTap,
   }) {
@@ -516,10 +522,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: isActive ? const Color(0xFF00E5FF) : const Color(0xFF2F435A),
                 ),
               ),
-              child: Icon(
-                icon,
-                size: 32,
-                color: isActive ? const Color(0xFF00E5FF) : const Color(0xFF7E93A8),
+              child: Center(
+                child: iconWidget ??
+                    Icon(
+                      icon,
+                      size: 32,
+                      color: isActive ? const Color(0xFF00E5FF) : const Color(0xFF7E93A8),
+                    ),
               ),
             ),
             const SizedBox(height: 14),

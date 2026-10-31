@@ -12,6 +12,7 @@ import '../widgets/h_pattern_shifter_widget.dart';
 import '../widgets/nav_cluster_widget.dart';
 import '../widgets/artificial_horizon_gauge_widget.dart';
 import '../widgets/dynamic_button_layer.dart';
+import '../widgets/sequential_shifter_widget.dart';
 import 'settings_screen.dart';
 
 enum CockpitMode {
@@ -50,6 +51,7 @@ class _ControllerScreenState extends State<ControllerScreen> {
   double _steeringAngleDeg = 0.0;
   double _gas = 0.0;
   double _brake = 0.0;
+  double _clutch = 0.0;
   bool _isHandbrakeActive = false;
   String _activeGear = 'N';
   final Set<int> _activeButtons = <int>{};
@@ -196,6 +198,20 @@ class _ControllerScreenState extends State<ControllerScreen> {
     });
   }
 
+  void _onSequentialShift(String newGear, int pulseVjoyBtn) {
+    setState(() {
+      _activeGear = newGear;
+      _activeButtons.add(pulseVjoyBtn);
+    });
+    Future.delayed(const Duration(milliseconds: 140), () {
+      if (mounted) {
+        setState(() {
+          _activeButtons.remove(pulseVjoyBtn);
+        });
+      }
+    });
+  }
+
   void _onCustomButtonChanged(int vjoyButton, bool isPressed) {
     setState(() {
       if (isPressed) {
@@ -213,6 +229,7 @@ class _ControllerScreenState extends State<ControllerScreen> {
       steering: _steering,
       gas: _gas,
       brake: _brake,
+      clutch: _clutch,
       buttons: _activeButtons.toList()..sort(),
       seq: _sequenceNumber,
     );
@@ -609,32 +626,73 @@ class _ControllerScreenState extends State<ControllerScreen> {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              // Column 1: H-Pattern Shifter on top, Brake Pedal directly below
+              // Column 1: Shifter (Sequential or H-Pattern) on top, Clutch & Brake Pedals directly below
               Column(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  // H-Pattern Shifter
-                  HPatternShifterWidget(
-                    activeGear: _activeGear,
-                    onGearChanged: _onGearChanged,
-                    width: 105,
-                    height: 130,
+                  // Shifter
+                  ValueListenableBuilder<AppSettings>(
+                    valueListenable: SettingsService.instance.settings,
+                    builder: (context, settings, _) {
+                      if (settings.transmissionMode == 'sequential') {
+                        return SequentialShifterWidget(
+                          activeGear: _activeGear,
+                          onShift: _onSequentialShift,
+                          width: 105,
+                          height: 130,
+                        );
+                      }
+                      return HPatternShifterWidget(
+                        activeGear: _activeGear,
+                        onGearChanged: _onGearChanged,
+                        width: 105,
+                        height: 130,
+                      );
+                    },
                   ),
 
                   const SizedBox(height: 8),
 
-                  // Brake Pedal (rem)
-                  AnalogPedalWidget(
-                    label: 'BRAKE',
-                    assetPath: 'assets/images/pedal_rem_tight.png',
-                    activeColor: const Color(0xFFFF1744),
-                    value: _brake,
-                    width: 82,
-                    height: 105,
-                    onChanged: (val) {
-                      setState(() {
-                        _brake = val;
-                      });
+                  // Pedals: Optional Clutch & Brake Pedal
+                  ValueListenableBuilder<AppSettings>(
+                    valueListenable: SettingsService.instance.settings,
+                    builder: (context, settings, _) {
+                      final hasClutch = settings.enableClutchPedal;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (hasClutch) ...[
+                            AnalogPedalWidget(
+                              label: 'CLUTCH',
+                              assetPath: 'assets/images/pedal_rem_tight.png',
+                              activeColor: const Color(0xFF00E5FF),
+                              value: _clutch,
+                              width: 66,
+                              height: 105,
+                              onChanged: (val) {
+                                setState(() {
+                                  _clutch = val;
+                                });
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          AnalogPedalWidget(
+                            label: 'BRAKE',
+                            assetPath: 'assets/images/pedal_rem_tight.png',
+                            activeColor: const Color(0xFFFF1744),
+                            value: _brake,
+                            width: hasClutch ? 66 : 82,
+                            height: 105,
+                            onChanged: (val) {
+                              setState(() {
+                                _brake = val;
+                              });
+                            },
+                          ),
+                        ],
+                      );
                     },
                   ),
                 ],
@@ -690,22 +748,50 @@ class _ControllerScreenState extends State<ControllerScreen> {
           ),
         ),
 
-        // Left Bottom: Relocated Brake Pedal for left-thumb braking
+        // Left Bottom: Relocated Brake & Clutch Pedal for left-thumb operation
         Align(
           alignment: Alignment.bottomLeft,
           child: Padding(
             padding: const EdgeInsets.only(bottom: 6.0, left: 10.0),
-            child: AnalogPedalWidget(
-              label: 'BRAKE',
-              assetPath: 'assets/images/pedal_rem_tight.png',
-              activeColor: const Color(0xFFFF1744),
-              value: _brake,
-              width: 88,
-              height: 120,
-              onChanged: (val) {
-                setState(() {
-                  _brake = val;
-                });
+            child: ValueListenableBuilder<AppSettings>(
+              valueListenable: SettingsService.instance.settings,
+              builder: (context, settings, _) {
+                final hasClutch = settings.enableClutchPedal;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (hasClutch) ...[
+                      AnalogPedalWidget(
+                        label: 'CLUTCH',
+                        assetPath: 'assets/images/pedal_rem_tight.png',
+                        activeColor: const Color(0xFF00E5FF),
+                        value: _clutch,
+                        width: 72,
+                        height: 120,
+                        onChanged: (val) {
+                          setState(() {
+                            _clutch = val;
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    AnalogPedalWidget(
+                      label: 'BRAKE',
+                      assetPath: 'assets/images/pedal_rem_tight.png',
+                      activeColor: const Color(0xFFFF1744),
+                      value: _brake,
+                      width: hasClutch ? 72 : 88,
+                      height: 120,
+                      onChanged: (val) {
+                        setState(() {
+                          _brake = val;
+                        });
+                      },
+                    ),
+                  ],
+                );
               },
             ),
           ),

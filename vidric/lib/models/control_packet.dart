@@ -4,6 +4,7 @@ class ControlPacket {
   final double steering; // -1.0 (Full Left) to +1.0 (Full Right)
   final double gas; // 0.0 (Idle) to 1.0 (Full Throttle)
   final double brake; // 0.0 (Idle) to 1.0 (Full Brake)
+  final double clutch; // 0.0 (Released) to 1.0 (Full Clutch)
   final List<int> buttons; // Active vJoy button IDs, e.g. [3, 7]
   final int seq; // Sequence counter
 
@@ -12,6 +13,7 @@ class ControlPacket {
     required this.steering,
     required this.gas,
     required this.brake,
+    this.clutch = 0.0,
     required this.buttons,
     required this.seq,
   });
@@ -23,6 +25,7 @@ class ControlPacket {
       steering: 0.0,
       gas: 0.0,
       brake: 0.0,
+      clutch: 0.0,
       buttons: const <int>[],
       seq: seq,
     );
@@ -35,6 +38,7 @@ class ControlPacket {
       'steering': double.parse(steering.clamp(-1.0, 1.0).toStringAsFixed(3)),
       'gas': double.parse(gas.clamp(0.0, 1.0).toStringAsFixed(3)),
       'brake': double.parse(brake.clamp(0.0, 1.0).toStringAsFixed(3)),
+      'clutch': double.parse(clutch.clamp(0.0, 1.0).toStringAsFixed(3)),
       'buttons': List<int>.from(buttons)..sort(),
       'seq': seq,
     };
@@ -45,6 +49,7 @@ class ControlPacket {
     double? steering,
     double? gas,
     double? brake,
+    double? clutch,
     List<int>? buttons,
     int? seq,
   }) {
@@ -53,6 +58,7 @@ class ControlPacket {
       steering: steering ?? this.steering,
       gas: gas ?? this.gas,
       brake: brake ?? this.brake,
+      clutch: clutch ?? this.clutch,
       buttons: buttons ?? this.buttons,
       seq: seq ?? this.seq,
     );
@@ -60,7 +66,7 @@ class ControlPacket {
 
   @override
   String toString() {
-    return 'ControlPacket(mode: $mode, steer: $steering, gas: $gas, brake: $brake, btns: $buttons, seq: $seq)';
+    return 'ControlPacket(mode: $mode, steer: $steering, gas: $gas, brake: $brake, clutch: $clutch, btns: $buttons, seq: $seq)';
   }
 }
 

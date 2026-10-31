@@ -9,6 +9,7 @@ void main() {
       expect(packet.steering, equals(0.0));
       expect(packet.gas, equals(0.0));
       expect(packet.brake, equals(0.0));
+      expect(packet.clutch, equals(0.0));
       expect(packet.buttons, isEmpty);
       expect(packet.seq, equals(1));
     });
@@ -19,6 +20,7 @@ void main() {
         steering: -0.425123,
         gas: 0.6509,
         brake: 0.0,
+        clutch: 0.8256,
         buttons: [7, 3, 9],
         seq: 42,
       );
@@ -28,6 +30,7 @@ void main() {
       expect(json['steering'], equals(-0.425));
       expect(json['gas'], equals(0.651));
       expect(json['brake'], equals(0.0));
+      expect(json['clutch'], equals(0.826));
       expect(json['buttons'], equals([3, 7, 9]));
       expect(json['seq'], equals(42));
     });
@@ -37,12 +40,14 @@ void main() {
       final updated = original.copyWith(
         steering: 0.5,
         gas: 1.0,
+        clutch: 0.75,
         buttons: [3],
       );
 
       expect(updated.steering, equals(0.5));
       expect(updated.gas, equals(1.0));
       expect(updated.brake, equals(0.0));
+      expect(updated.clutch, equals(0.75));
       expect(updated.buttons, equals([3]));
       expect(updated.seq, equals(5));
     });

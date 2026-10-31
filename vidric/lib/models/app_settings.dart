@@ -16,6 +16,7 @@ class AppSettings {
   final bool nonLinearBrake;
   final String handbrakeMode; // 'toggle' atau 'momentary'
   final String transmissionMode; // 'hPattern' atau 'sequential'
+  final bool enableClutchPedal; // Pedal kopling analog ketiga
   final bool invertPedals;
 
   // Setelan Suara & Haptik
@@ -37,6 +38,7 @@ class AppSettings {
     this.nonLinearBrake = true,
     this.handbrakeMode = 'toggle',
     this.transmissionMode = 'hPattern',
+    this.enableClutchPedal = false,
     this.invertPedals = false,
     this.hapticIntensity = 'medium',
     this.mechanicalAudioClicks = true,
@@ -68,6 +70,7 @@ class AppSettings {
     bool? nonLinearBrake,
     String? handbrakeMode,
     String? transmissionMode,
+    bool? enableClutchPedal,
     bool? invertPedals,
     String? hapticIntensity,
     bool? mechanicalAudioClicks,
@@ -85,6 +88,7 @@ class AppSettings {
       nonLinearBrake: nonLinearBrake ?? this.nonLinearBrake,
       handbrakeMode: handbrakeMode ?? this.handbrakeMode,
       transmissionMode: transmissionMode ?? this.transmissionMode,
+      enableClutchPedal: enableClutchPedal ?? this.enableClutchPedal,
       invertPedals: invertPedals ?? this.invertPedals,
       hapticIntensity: hapticIntensity ?? this.hapticIntensity,
       mechanicalAudioClicks: mechanicalAudioClicks ?? this.mechanicalAudioClicks,

@@ -409,3 +409,4 @@ class _GridPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _GridPainter oldDelegate) => oldDelegate.gridSize != gridSize;
 }
+

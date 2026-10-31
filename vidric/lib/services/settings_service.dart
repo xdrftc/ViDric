@@ -56,6 +56,10 @@ class SettingsService {
     update((c) => c.copyWith(transmissionMode: mode));
   }
 
+  void setEnableClutchPedal(bool enabled) {
+    update((c) => c.copyWith(enableClutchPedal: enabled));
+  }
+
   void setInvertPedals(bool inverted) {
     update((c) => c.copyWith(invertPedals: inverted));
   }

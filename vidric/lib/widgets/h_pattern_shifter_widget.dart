@@ -178,7 +178,7 @@ class _HPatternShifterWidgetState extends State<HPatternShifterWidget> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Top Row Slots: [1] [3] [5]
+        // Top Row Slots: [R] [1] [3] [5]
         Padding(
           padding: const EdgeInsets.only(top: 8.0, left: 6, right: 6),
           child: FittedBox(
@@ -186,6 +186,8 @@ class _HPatternShifterWidgetState extends State<HPatternShifterWidget> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+                _buildSlotTarget('R'),
+                const SizedBox(width: 4),
                 _buildSlotTarget('1'),
                 const SizedBox(width: 4),
                 _buildSlotTarget('3'),
@@ -204,6 +206,8 @@ class _HPatternShifterWidgetState extends State<HPatternShifterWidget> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
+                const SizedBox(width: 26),
+                const SizedBox(width: 4),
                 _buildSlotTarget('2'),
                 const SizedBox(width: 4),
                 _buildSlotTarget('4'),
@@ -219,6 +223,7 @@ class _HPatternShifterWidgetState extends State<HPatternShifterWidget> {
 
   Widget _buildSlotTarget(String gear) {
     final isActive = widget.activeGear == gear;
+    final gearColor = gear == 'R' ? const Color(0xFFFF1744) : const Color(0xFF00E5FF);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -230,13 +235,16 @@ class _HPatternShifterWidgetState extends State<HPatternShifterWidget> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           color: isActive
-              ? const Color(0xFF00E5FF).withValues(alpha: 0.15)
+              ? gearColor.withValues(alpha: 0.2)
               : Colors.transparent,
+          border: isActive
+              ? Border.all(color: gearColor, width: 1.2)
+              : null,
         ),
         child: Text(
           gear,
           style: TextStyle(
-            color: isActive ? const Color(0xFF00E5FF) : Colors.transparent,
+            color: isActive ? gearColor : const Color(0xFF8FA3B8),
             fontSize: 11,
             fontWeight: FontWeight.bold,
           ),

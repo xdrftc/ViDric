@@ -108,6 +108,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(SettingsService.instance.current.steeringDegrees, equals(540));
+
+      // Test Tilt Sensitivity chip: SPORT (30°)
+      expect(find.text('SENSITIVITAS KEMIRINGAN (TILT SENSITIVITY)'), findsOneWidget);
+      await tester.tap(find.text('SPORT (30°)'));
+      await tester.pumpAndSettle();
+
+      expect(SettingsService.instance.current.tiltSensitivity, equals('sport'));
+      expect(SettingsService.instance.current.tiltMaxAngle, equals(30.0));
     });
 
     testWidgets('navigates to ABOUT tab and displays system information', (WidgetTester tester) async {
@@ -132,3 +140,4 @@ void main() {
     });
   });
 }
+

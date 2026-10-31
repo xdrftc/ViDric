@@ -28,6 +28,10 @@ class SettingsService {
     update((c) => c.copyWith(tiltSensorType: type));
   }
 
+  void setTiltSensitivity(String sensitivity) {
+    update((c) => c.copyWith(tiltSensitivity: sensitivity));
+  }
+
   void setSteeringDegrees(int degrees) {
     update((c) => c.copyWith(steeringDegrees: degrees));
   }
@@ -80,3 +84,4 @@ class SettingsService {
     settings.value = const AppSettings();
   }
 }
+

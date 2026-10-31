@@ -812,6 +812,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 isSelected: settings.tiltSensorType == 'accelerometer',
                 onTap: () => _service.setTiltSensorType('accelerometer'),
               ),
+              const SizedBox(height: 12),
+              const Text(
+                'SENSITIVITAS KEMIRINGAN (TILT SENSITIVITY)',
+                style: TextStyle(color: Color(0xFF00E5FF), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildSensitivityChip(
+                    label: 'SPORT (30°)',
+                    value: 'sport',
+                    selectedValue: settings.tiltSensitivity,
+                    onSelected: () => _service.setTiltSensitivity('sport'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSensitivityChip(
+                    label: 'NORMAL (45°)',
+                    value: 'normal',
+                    selectedValue: settings.tiltSensitivity,
+                    onSelected: () => _service.setTiltSensitivity('normal'),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSensitivityChip(
+                    label: 'TRUCK (60°)',
+                    value: 'truck',
+                    selectedValue: settings.tiltSensitivity,
+                    onSelected: () => _service.setTiltSensitivity('truck'),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -951,6 +981,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildSensitivityChip({
+    required String label,
+    required String value,
+    required String selectedValue,
+    required VoidCallback onSelected,
+  }) {
+    final bool isSelected = value == selectedValue;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      selectedColor: const Color(0xFF00E5FF),
+      backgroundColor: const Color(0xFF1B2836),
+      labelStyle: TextStyle(
+        color: isSelected ? const Color(0xFF0E141B) : const Color(0xFFD4E0EC),
+        fontSize: 10.5,
+        fontWeight: FontWeight.bold,
+      ),
+      onSelected: (_) => onSelected(),
     );
   }
 

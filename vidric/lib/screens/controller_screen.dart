@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/control_packet.dart';
 import '../services/settings_service.dart';
+import '../services/tilt_sensor_service.dart';
 import '../widgets/steering_wheel_widget.dart';
 import '../widgets/analog_pedal_widget.dart';
 import '../widgets/h_pattern_shifter_widget.dart';
 import '../widgets/nav_cluster_widget.dart';
+import '../widgets/artificial_horizon_gauge_widget.dart';
 import 'settings_screen.dart';
 
 enum CockpitMode {
@@ -58,12 +60,26 @@ class _ControllerScreenState extends State<ControllerScreen> {
     _lockLandscapeAndImmersive();
     _syncWithSettings();
     SettingsService.instance.settings.addListener(_onSettingsUpdated);
+    TiltSensorService.instance.telemetry.addListener(_onTiltTelemetry);
+    TiltSensorService.instance.startListening();
   }
 
   @override
   void dispose() {
     SettingsService.instance.settings.removeListener(_onSettingsUpdated);
+    TiltSensorService.instance.telemetry.removeListener(_onTiltTelemetry);
+    TiltSensorService.instance.stopListening();
     super.dispose();
+  }
+
+  void _onTiltTelemetry() {
+    if (_activeMode == CockpitMode.tilt && mounted) {
+      final t = TiltSensorService.instance.current;
+      setState(() {
+        _steering = t.normalizedSteering;
+        _steeringAngleDeg = t.filteredAngleDeg;
+      });
+    }
   }
 
   void _syncWithSettings() {
@@ -144,6 +160,7 @@ class _ControllerScreenState extends State<ControllerScreen> {
 
   void _recenterZero() {
     HapticFeedback.heavyImpact();
+    TiltSensorService.instance.recenterZero();
     setState(() {
       _steering = 0.0;
       _steeringAngleDeg = 0.0;
@@ -523,28 +540,15 @@ class _ControllerScreenState extends State<ControllerScreen> {
   Widget _buildTiltModeLayout() {
     return Stack(
       children: [
-        // Center: Artificial Horizon Line with Degree Readout
+        // Center: Artificial Horizon Gauge with Rotating Horizon & Degree Scale
         Align(
           alignment: const Alignment(0.0, -0.2),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 160,
-                height: 2.0,
-                color: const Color(0xFF8FA3B8),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '${_steeringAngleDeg.toStringAsFixed(1)}°',
-                style: const TextStyle(
-                  color: Color(0xFFD4E0EC),
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.0,
-                ),
-              ),
-            ],
+          child: ArtificialHorizonGaugeWidget(
+            angleDeg: _steeringAngleDeg,
+            maxAngleDeg: SettingsService.instance.current.tiltMaxAngle,
+            pitchDeg: TiltSensorService.instance.current.pitchDeg,
+            isCalibrated: TiltSensorService.instance.current.isCalibrated,
+            size: 190,
           ),
         ),
 

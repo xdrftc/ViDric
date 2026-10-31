@@ -7,6 +7,7 @@ class AppSettings {
 
   // Setelan Kemudi (Steering)
   final String tiltSensorType; // 'gyro' atau 'accelerometer'
+  final String tiltSensitivity; // 'sport' (30°), 'normal' (45°), 'truck' (60°)
   final int steeringDegrees; // 180, 360, 540, 900, 1080
   final double springDamping; // 0.1 s/d 1.0
   final double centerDeadzone; // 0.0 s/d 15.0 derajat
@@ -29,6 +30,7 @@ class AppSettings {
   const AppSettings({
     this.cockpitMode = 'steeringWheel',
     this.tiltSensorType = 'gyro',
+    this.tiltSensitivity = 'normal',
     this.steeringDegrees = 900,
     this.springDamping = 0.6,
     this.centerDeadzone = 2.0,
@@ -43,9 +45,23 @@ class AppSettings {
     this.buttonScale = 1.0,
   });
 
+  /// Derajat kemiringan maksimal berdasarkan sensitivitas yang dipilih.
+  double get tiltMaxAngle {
+    switch (tiltSensitivity) {
+      case 'sport':
+        return 30.0;
+      case 'truck':
+        return 60.0;
+      case 'normal':
+      default:
+        return 45.0;
+    }
+  }
+
   AppSettings copyWith({
     String? cockpitMode,
     String? tiltSensorType,
+    String? tiltSensitivity,
     int? steeringDegrees,
     double? springDamping,
     double? centerDeadzone,
@@ -62,6 +78,7 @@ class AppSettings {
     return AppSettings(
       cockpitMode: cockpitMode ?? this.cockpitMode,
       tiltSensorType: tiltSensorType ?? this.tiltSensorType,
+      tiltSensitivity: tiltSensitivity ?? this.tiltSensitivity,
       steeringDegrees: steeringDegrees ?? this.steeringDegrees,
       springDamping: springDamping ?? this.springDamping,
       centerDeadzone: centerDeadzone ?? this.centerDeadzone,
@@ -77,3 +94,4 @@ class AppSettings {
     );
   }
 }
+

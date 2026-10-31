@@ -40,6 +40,13 @@ void main() {
     expect(find.text('TILT MODE'), findsOneWidget);
     expect(find.text('RECENTER'), findsOneWidget);
     expect(find.text('0.0°'), findsOneWidget);
+    expect(find.text('UNCALIBRATED'), findsOneWidget);
+
+    // Tap RECENTER button to calibrate zero
+    await tester.tap(find.text('RECENTER'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Recenter Zero'), findsOneWidget);
+    expect(find.text('TILT HORIZON : ACTIVE'), findsOneWidget);
 
     // Tap Settings Gear Icon to open SettingsScreen
     await tester.tap(find.byIcon(Icons.settings));

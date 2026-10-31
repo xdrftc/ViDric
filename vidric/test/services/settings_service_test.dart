@@ -42,12 +42,15 @@ void main() {
       service.setSpringDamping(0.8);
       service.setCenterDeadzone(4.5);
       service.setTiltSensorType('accelerometer');
+      service.setTiltSensitivity('sport');
 
       final s = service.current;
       expect(s.steeringDegrees, equals(540));
       expect(s.springDamping, closeTo(0.8, 0.01));
       expect(s.centerDeadzone, closeTo(4.5, 0.01));
       expect(s.tiltSensorType, equals('accelerometer'));
+      expect(s.tiltSensitivity, equals('sport'));
+      expect(s.tiltMaxAngle, equals(30.0));
     });
 
     test('updates pedals & sound haptics', () {

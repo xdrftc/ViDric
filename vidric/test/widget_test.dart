@@ -62,5 +62,19 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(ControllerScreen), findsOneWidget);
+
+    // Tap UDP OFF indicator to open ConnectionModalWidget
+    expect(find.text('UDP OFF'), findsOneWidget);
+    await tester.tap(find.text('UDP OFF'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('KONEKSI PC COMPANION (WI-FI UDP)'), findsOneWidget);
+    expect(find.text('HUBUNGKAN KE PC (50 HZ)'), findsOneWidget);
+
+    // Tap TUTUP to close modal
+    await tester.tap(find.text('TUTUP'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ControllerScreen), findsOneWidget);
   });
 }

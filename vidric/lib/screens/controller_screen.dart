@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import '../models/control_packet.dart';
 import '../services/settings_service.dart';
 import '../services/tilt_sensor_service.dart';
+import '../services/udp_service.dart';
 import '../widgets/steering_wheel_widget.dart';
 import '../widgets/analog_pedal_widget.dart';
 import '../widgets/h_pattern_shifter_widget.dart';
 import '../widgets/nav_cluster_widget.dart';
 import '../widgets/artificial_horizon_gauge_widget.dart';
+import '../widgets/connection_modal_widget.dart';
 import 'settings_screen.dart';
 
 enum CockpitMode {
@@ -62,6 +64,8 @@ class _ControllerScreenState extends State<ControllerScreen> {
     SettingsService.instance.settings.addListener(_onSettingsUpdated);
     TiltSensorService.instance.telemetry.addListener(_onTiltTelemetry);
     TiltSensorService.instance.startListening();
+    UdpService.instance.init();
+    UdpService.instance.packetProvider = buildCurrentPacket;
   }
 
   @override
@@ -69,6 +73,7 @@ class _ControllerScreenState extends State<ControllerScreen> {
     SettingsService.instance.settings.removeListener(_onSettingsUpdated);
     TiltSensorService.instance.telemetry.removeListener(_onTiltTelemetry);
     TiltSensorService.instance.stopListening();
+    UdpService.instance.disconnect();
     super.dispose();
   }
 
@@ -300,6 +305,57 @@ class _ControllerScreenState extends State<ControllerScreen> {
                   ],
                 ),
               ),
+            ),
+
+            const SizedBox(width: 8),
+
+            // UDP Connection Status Pill (Tapping opens ConnectionModalWidget)
+            ValueListenableBuilder<NetworkMetrics>(
+              valueListenable: UdpService.instance.metrics,
+              builder: (context, net, _) {
+                final isLive = net.isConnected;
+                return InkWell(
+                  onTap: () {
+                    HapticFeedback.lightImpact();
+                    ConnectionModalWidget.show(context);
+                  },
+                  borderRadius: BorderRadius.circular(16),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1C2733),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isLive ? const Color(0xFF00E676) : const Color(0xFF2E3E50),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: isLive ? const Color(0xFF00E676) : const Color(0xFFFF1744),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          isLive ? 'UDP 50 HZ' : 'UDP OFF',
+                          style: TextStyle(
+                            color: isLive ? const Color(0xFF00E676) : const Color(0xFFD4E0EC),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
 
             const SizedBox(width: 8),

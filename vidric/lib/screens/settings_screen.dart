@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/app_settings.dart';
 import '../services/settings_service.dart';
+import '../widgets/connection_modal_widget.dart';
 
 /// Layanan Navigasi Tab Pengaturan (Master List).
 enum SettingsTab {
@@ -1197,38 +1198,54 @@ class _SettingsScreenState extends State<SettingsScreen> {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFF223245)),
           ),
-          child: const Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
+              const Text(
                 'ViDric (Virtual Driving Controller)',
                 style: TextStyle(color: Color(0xFF00E5FF), fontSize: 13, fontWeight: FontWeight.w900, letterSpacing: 1.0),
               ),
-              SizedBox(height: 4),
-              Text('Versi Aplikasi: v1.0.0-rc1 (Build 2026.10)', style: TextStyle(color: Color(0xFF8B9FB3), fontSize: 11)),
-              SizedBox(height: 12),
-              Divider(height: 1, thickness: 1, color: Color(0xFF1E2C3A)),
-              SizedBox(height: 12),
-              Text(
+              const SizedBox(height: 4),
+              const Text('Versi Aplikasi: v1.0.0-rc1 (Build 2026.10)', style: TextStyle(color: Color(0xFF8B9FB3), fontSize: 11)),
+              const SizedBox(height: 12),
+              const Divider(height: 1, thickness: 1, color: Color(0xFF1E2C3A)),
+              const SizedBox(height: 12),
+              const Text(
                 'Kompetensi Keahlian:',
                 style: TextStyle(color: Color(0xFFE0E6ED), fontSize: 11, fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 4),
-              Text(
+              const SizedBox(height: 4),
+              const Text(
                 'Proyek Portofolio Uji Kompetensi Keahlian (UKK) Rekayasa Perangkat Lunak SMK.\nArsitektur: Non-MVVM State-Driven Flutter Controller + Dedicated Communication Services.',
                 style: TextStyle(color: Color(0xFF8B9FB3), fontSize: 10.5, height: 1.4),
               ),
-              SizedBox(height: 12),
-              Divider(height: 1, thickness: 1, color: Color(0xFF1E2C3A)),
-              SizedBox(height: 12),
-              Text(
+              const SizedBox(height: 12),
+              const Divider(height: 1, thickness: 1, color: Color(0xFF1E2C3A)),
+              const SizedBox(height: 12),
+              const Text(
                 'Protokol & Driver PC:',
                 style: TextStyle(color: Color(0xFFE0E6ED), fontSize: 11, fontWeight: FontWeight.bold),
               ),
-              SizedBox(height: 4),
-              Text(
+              const SizedBox(height: 4),
+              const Text(
                 '- Wi-Fi UDP Port: 5005 (Latency < 8ms, 50 Hz Packet Stream)\n- Driver PC: vJoy 2.1.9 Virtual Joystick Windows\n- Lisensi: Open Source MIT License',
                 style: TextStyle(color: Color(0xFF8B9FB3), fontSize: 10.5, height: 1.4),
+              ),
+              const SizedBox(height: 14),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: OutlinedButton.icon(
+                  onPressed: () => ConnectionModalWidget.show(context),
+                  icon: const Icon(Icons.wifi, size: 14, color: Color(0xFF00E5FF)),
+                  label: const Text(
+                    'PENGATURAN KONEKSI UDP / SCAN QR',
+                    style: TextStyle(color: Color(0xFF00E5FF), fontSize: 10.5, fontWeight: FontWeight.bold),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF00E5FF)),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
               ),
             ],
           ),

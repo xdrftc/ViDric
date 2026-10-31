@@ -246,3 +246,4 @@ class _HorizonGaugePainter extends CustomPainter {
         oldDelegate.activeColor != activeColor;
   }
 }
+

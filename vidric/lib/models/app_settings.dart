@@ -28,6 +28,10 @@ class AppSettings {
   final double buttonOpacity; // 0.3 s/d 1.0
   final double buttonScale; // 0.8 s/d 1.2
 
+  // Setelan Transmisi & Jaringan (Latency & Rate)
+  final int transmissionRateHz; // 50, 60, 100, 120 Hz
+  final bool useBinaryProtocol; // True: 17-byte binary compact, False: JSON
+
   const AppSettings({
     this.cockpitMode = 'steeringWheel',
     this.tiltSensorType = 'gyro',
@@ -45,6 +49,8 @@ class AppSettings {
     this.lockBumpHaptic = true,
     this.buttonOpacity = 0.9,
     this.buttonScale = 1.0,
+    this.transmissionRateHz = 50,
+    this.useBinaryProtocol = true,
   });
 
   /// Derajat kemiringan maksimal berdasarkan sensitivitas yang dipilih.
@@ -77,6 +83,8 @@ class AppSettings {
     bool? lockBumpHaptic,
     double? buttonOpacity,
     double? buttonScale,
+    int? transmissionRateHz,
+    bool? useBinaryProtocol,
   }) {
     return AppSettings(
       cockpitMode: cockpitMode ?? this.cockpitMode,
@@ -95,6 +103,8 @@ class AppSettings {
       lockBumpHaptic: lockBumpHaptic ?? this.lockBumpHaptic,
       buttonOpacity: buttonOpacity ?? this.buttonOpacity,
       buttonScale: buttonScale ?? this.buttonScale,
+      transmissionRateHz: transmissionRateHz ?? this.transmissionRateHz,
+      useBinaryProtocol: useBinaryProtocol ?? this.useBinaryProtocol,
     );
   }
 }

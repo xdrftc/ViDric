@@ -83,6 +83,8 @@ void main() {
       expect(service.current.status, equals(ConnectionStatus.disconnected));
       expect(service.current.packetsPerSecond, equals(0.0));
       expect(service.isConnected, isFalse);
+      expect(service.current.targetRateHz, equals(50));
+      expect(service.current.isBinary, isTrue);
     });
   });
 }

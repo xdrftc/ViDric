@@ -84,6 +84,14 @@ class SettingsService {
     update((c) => c.copyWith(buttonScale: scale));
   }
 
+  void setTransmissionRateHz(int rateHz) {
+    update((c) => c.copyWith(transmissionRateHz: rateHz));
+  }
+
+  void setUseBinaryProtocol(bool enabled) {
+    update((c) => c.copyWith(useBinaryProtocol: enabled));
+  }
+
   void resetToDefaults() {
     settings.value = const AppSettings();
   }

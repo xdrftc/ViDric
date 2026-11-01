@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vidric/models/control_packet.dart';
 
@@ -50,6 +51,38 @@ void main() {
       expect(updated.clutch, equals(0.75));
       expect(updated.buttons, equals([3]));
       expect(updated.seq, equals(5));
+    });
+
+    test('toBinaryPacket() creates exactly 17 bytes and fromBinaryPacket() restores values', () {
+      const packet = ControlPacket(
+        mode: 'tilt',
+        steering: -0.5,
+        gas: 1.0,
+        brake: 0.25,
+        clutch: 0.75,
+        buttons: [1, 5, 16],
+        seq: 1024,
+      );
+
+      final bytes = packet.toBinaryPacket();
+      expect(bytes.length, equals(17));
+      expect(bytes[0], equals(0x56)); // 'V'
+      expect(bytes[1], equals(0x44)); // 'D'
+      expect(bytes[12], equals(1));   // 'tilt' mode flag
+
+      final restored = ControlPacket.fromBinaryPacket(bytes);
+      expect(restored.mode, equals('tilt'));
+      expect(restored.seq, equals(1024));
+      expect(restored.steering, closeTo(-0.5, 0.001));
+      expect(restored.gas, closeTo(1.0, 0.001));
+      expect(restored.brake, closeTo(0.25, 0.001));
+      expect(restored.clutch, closeTo(0.75, 0.001));
+      expect(restored.buttons, equals([1, 5, 16]));
+    });
+
+    test('fromBinaryPacket() throws FormatException on invalid payload or length', () {
+      expect(() => ControlPacket.fromBinaryPacket(Uint8List(16)), throwsFormatException);
+      expect(() => ControlPacket.fromBinaryPacket(Uint8List(17)), throwsFormatException);
     });
   });
 }

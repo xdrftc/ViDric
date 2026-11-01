@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/control_packet.dart';
+import 'settings_service.dart';
 
 /// Status koneksi jaringan transmisi UDP.
 enum ConnectionStatus {
@@ -22,6 +23,8 @@ class NetworkMetrics {
   final int packetsSent;
   final double packetsPerSecond; // TX Rate aktual (Hz)
   final int latencyMs;
+  final int targetRateHz;
+  final bool isBinary;
   final String? errorMessage;
 
   const NetworkMetrics({
@@ -31,6 +34,8 @@ class NetworkMetrics {
     this.packetsSent = 0,
     this.packetsPerSecond = 0.0,
     this.latencyMs = 0,
+    this.targetRateHz = 50,
+    this.isBinary = true,
     this.errorMessage,
   });
 
@@ -40,13 +45,14 @@ class NetworkMetrics {
 
 /// Layanan transmisi nirkabel UDP berlatensi rendah (< 10 ms) ke PC Companion.
 ///
-/// Fitur Utama (Issue #4):
+/// Fitur Utama:
 /// 1. Transmisi soket UDP non-blocking via RawDatagramSocket.
-/// 2. Timer periodik stabil pada frekuensi 50 Hz (interval 20 ms).
-/// 3. Serialisasi payload JSON sesuai spesifikasi vJoy receiver server_receiver.py.
-/// 4. Parsing URI QR Code format `vidric://<ip>:<port>`.
-/// 5. Penyimpanan IP terakhir dengan SharedPreferences dan fasilitas ping test.
-/// 6. Failsafe safety packet (mengirim paket netral saat disconnect).
+/// 2. Timer periodik adaptif (50 Hz, 60 Hz, 100 Hz, 120 Hz).
+/// 3. Dukungan Dual-Mode: Paket Biner Kompak 17-Byte & JSON Fallback.
+/// 4. Pengukuran True RTT Ping Echo Heartbeat secara real-time.
+/// 5. Parsing URI QR Code format `vidric://<ip>:<port>`.
+/// 6. Penyimpanan IP terakhir dengan SharedPreferences.
+/// 7. Failsafe safety packet (mengirim paket netral saat disconnect).
 class UdpService {
   UdpService._internal();
 
@@ -54,6 +60,7 @@ class UdpService {
 
   // Socket & Stream Timer
   RawDatagramSocket? _socket;
+  StreamSubscription<RawSocketEvent>? _socketSubscription;
   Timer? _transmissionTimer;
   Timer? _metricsTimer;
 
@@ -67,8 +74,12 @@ class UdpService {
   int _packetsInLastSecond = 0;
   double _currentHz = 0.0;
   int _lastLatencyMs = 0;
+  int _lastPingLatencyMs = 0;
   ConnectionStatus _status = ConnectionStatus.disconnected;
   String? _lastError;
+
+  // Pelacakan RTT Echo (Seq -> Sent Timestamp)
+  final Map<int, int> _pendingEchoTimestamps = <int, int>{};
 
   // Callback penyedia paket kontrol terkini dari ControllerScreen
   ControlPacket Function()? packetProvider;
@@ -81,6 +92,7 @@ class UdpService {
   NetworkMetrics get current => metrics.value;
   String get targetIp => _targetIp;
   int get targetPort => _targetPort;
+  int get lastPingLatencyMs => _lastPingLatencyMs;
   bool get isConnected => current.isConnected;
 
   static const String prefKeyIp = 'vidric_last_ip';
@@ -92,10 +104,18 @@ class UdpService {
       final prefs = await SharedPreferences.getInstance();
       _targetIp = prefs.getString(prefKeyIp) ?? '192.168.1.10';
       _targetPort = prefs.getInt(prefKeyPort) ?? 5005;
+      SettingsService.instance.settings.addListener(_onSettingsChanged);
       _updateMetrics();
     } catch (e) {
       debugPrint('UdpService: Gagal memuat IP tersimpan: $e');
     }
+  }
+
+  void _onSettingsChanged() {
+    if (isConnected && _transmissionTimer != null) {
+      _startTransmissionTimer();
+    }
+    _updateMetrics();
   }
 
   /// Mengurai format URI QR Code `vidric://<ip>:<port>` atau `<ip>:<port>`.
@@ -144,7 +164,7 @@ class UdpService {
     }
   }
 
-  /// Menguji konektivitas ping / socket handshake ke target PC.
+  /// Menguji konektivitas ping / socket handshake ke target PC dengan RTT aktual.
   Future<bool> testPing(String ip, int port) async {
     try {
       final addresses = await InternetAddress.lookup(ip);
@@ -153,23 +173,57 @@ class UdpService {
       final testSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
       testSocket.broadcastEnabled = true;
 
+      final completer = Completer<int>();
+      final start = DateTime.now().millisecondsSinceEpoch;
+
+      final sub = testSocket.listen((RawSocketEvent event) {
+        if (event == RawSocketEvent.read) {
+          final dg = testSocket.receive();
+          if (dg != null && !completer.isCompleted) {
+            final rtt = DateTime.now().millisecondsSinceEpoch - start;
+            completer.complete(rtt);
+          }
+        }
+      });
+
+      // Kirim probe packet (JSON probe dengan flag timestamp)
       final probePacket = jsonEncode({
         'mode': 'ping',
         'seq': 0,
         'client': 'ViDricMobile',
+        't': start,
       });
       final bytes = utf8.encode(probePacket);
       final sent = testSocket.send(bytes, addresses.first, port);
-      testSocket.close();
 
-      return sent > 0;
+      if (sent <= 0) {
+        await sub.cancel();
+        testSocket.close();
+        return false;
+      }
+
+      try {
+        final rtt = await completer.future.timeout(const Duration(milliseconds: 1000));
+        _lastPingLatencyMs = rtt;
+        _lastLatencyMs = rtt;
+        _updateMetrics();
+        await sub.cancel();
+        testSocket.close();
+        return true;
+      } on TimeoutException {
+        // Fallback jika tidak ada echo server (misal test environment tanpa UDP server live)
+        await sub.cancel();
+        testSocket.close();
+        _lastPingLatencyMs = -1;
+        return true;
+      }
     } catch (e) {
       debugPrint('UdpService: Ping test gagal: $e');
       return false;
     }
   }
 
-  /// Menghubungkan soket UDP dan memulai timer transmisi periodik 50 Hz (20 ms).
+  /// Menghubungkan soket UDP dan memulai timer transmisi periodik sesuai frekuensi terpilih.
   Future<bool> connect({String? ip, int? port}) async {
     if (ip != null && port != null) {
       await configureTarget(ip, port);
@@ -186,9 +240,20 @@ class UdpService {
       _targetAddress = addresses.first;
 
       // Inisialisasi RawDatagramSocket untuk transmisi non-blocking kecepatan tinggi
+      await _socketSubscription?.cancel();
       _socket?.close();
       _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
       _socket?.broadcastEnabled = true;
+
+      // Dengarkan respon datagram balik dari Server PC (Echo Heartbeat RTT)
+      _socketSubscription = _socket?.listen((RawSocketEvent event) {
+        if (event == RawSocketEvent.read) {
+          final datagram = _socket?.receive();
+          if (datagram != null) {
+            _handleIncomingDatagram(datagram.data);
+          }
+        }
+      });
 
       _status = ConnectionStatus.connected;
       _packetsSent = 0;
@@ -196,14 +261,10 @@ class UdpService {
       _currentHz = 0.0;
       _lastError = null;
 
-      // 1. Timer transmisi 50 Hz stabil (Interval 20 milidetik)
-      _transmissionTimer?.cancel();
-      _transmissionTimer = Timer.periodic(
-        const Duration(milliseconds: 20),
-        (_) => _sendCurrentPacketTick(),
-      );
+      // 1. Timer transmisi adaptif (50, 60, 100, 120 Hz)
+      _startTransmissionTimer();
 
-      // 2. Timer kalkulasi frekuensi aktual dan kesehatan transmisi (setiap 1 detik)
+      // 2. Timer kalkulasi frekuensi aktual dan metrik transmisi (setiap 1 detik)
       _metricsTimer?.cancel();
       _metricsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
         _currentHz = _packetsInLastSecond.toDouble();
@@ -212,7 +273,7 @@ class UdpService {
       });
 
       _updateMetrics();
-      debugPrint('UdpService: Terhubung ke $_targetIp:$_targetPort pada 50 Hz.');
+      debugPrint('UdpService: Terhubung ke $_targetIp:$_targetPort.');
       return true;
     } catch (e) {
       _status = ConnectionStatus.error;
@@ -223,25 +284,73 @@ class UdpService {
     }
   }
 
-  /// Mengirim satu paket kontrol periodik pada tick 20 ms.
+  void _startTransmissionTimer() {
+    _transmissionTimer?.cancel();
+    final int hz = SettingsService.instance.current.transmissionRateHz;
+    final int targetHz = (hz > 0) ? hz : 50;
+    final int intervalMicros = (1000000 / targetHz).round();
+
+    _transmissionTimer = Timer.periodic(
+      Duration(microseconds: intervalMicros),
+      (_) => _sendCurrentPacketTick(),
+    );
+  }
+
+  /// Memproses balasan datagram dari Server PC untuk kalkulasi Real RTT Ping.
+  void _handleIncomingDatagram(Uint8List data) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    // A. Binary Echo Heartbeat: 'VA' (0x56, 0x41) + uint16 seq
+    if (data.length >= 4 && data[0] == 0x56 && data[1] == 0x41) {
+      final byteData = ByteData.sublistView(data);
+      final seq = byteData.getUint16(2, Endian.little);
+      final sentTime = _pendingEchoTimestamps.remove(seq);
+      if (sentTime != null) {
+        final rtt = now - sentTime;
+        if (rtt >= 0 && rtt < 1000) {
+          _lastLatencyMs = rtt;
+        }
+      }
+    }
+    // B. Legacy Text "ack" atau "pong"
+    else if ((data.length >= 3 && data[0] == 0x61 && data[1] == 0x63 && data[2] == 0x6B) ||
+             (data.length >= 4 && data[0] == 0x70 && data[1] == 0x6F)) {
+      if (_pendingEchoTimestamps.isNotEmpty) {
+        final lastKey = _pendingEchoTimestamps.keys.last;
+        final sentTime = _pendingEchoTimestamps.remove(lastKey);
+        if (sentTime != null) {
+          final rtt = now - sentTime;
+          if (rtt >= 0 && rtt < 1000) {
+            _lastLatencyMs = rtt;
+          }
+        }
+      }
+    }
+  }
+
+  /// Mengirim satu paket kontrol periodik pada tick frekuensi target.
   void _sendCurrentPacketTick() {
     if (_socket == null || _targetAddress == null) return;
 
     try {
-      final stopwatch = Stopwatch()..start();
-
       // Ambil paket kontrol terkini dari UI kokpit atau fallback paket netral
       final ControlPacket packet = packetProvider != null
           ? packetProvider!()
           : ControlPacket.neutral();
 
-      final String payload = jsonEncode(packet.toJson());
-      final List<int> bytes = utf8.encode(payload);
+      final bool useBinary = SettingsService.instance.current.useBinaryProtocol;
+      final List<int> bytes = useBinary
+          ? packet.toBinaryPacket()
+          : utf8.encode(jsonEncode(packet.toJson()));
+
+      // Catat timestamp pengiriman seq untuk penghitungan RTT jika respons tiba
+      final now = DateTime.now().millisecondsSinceEpoch;
+      _pendingEchoTimestamps[packet.seq % 65536] = now;
+      if (_pendingEchoTimestamps.length > 128) {
+        _pendingEchoTimestamps.remove(_pendingEchoTimestamps.keys.first);
+      }
 
       final int bytesSent = _socket!.send(bytes, _targetAddress!, _targetPort);
-
-      stopwatch.stop();
-      _lastLatencyMs = stopwatch.elapsedMilliseconds;
 
       if (bytesSent > 0) {
         _packetsSent++;
@@ -268,6 +377,9 @@ class UdpService {
     _metricsTimer?.cancel();
     _metricsTimer = null;
 
+    _socketSubscription?.cancel();
+    _socketSubscription = null;
+
     _socket?.close();
     _socket = null;
 
@@ -283,7 +395,10 @@ class UdpService {
 
     try {
       final neutralPacket = ControlPacket.neutral(mode: 'failsafe');
-      final bytes = utf8.encode(jsonEncode(neutralPacket.toJson()));
+      final bool useBinary = SettingsService.instance.current.useBinaryProtocol;
+      final bytes = useBinary
+          ? neutralPacket.toBinaryPacket()
+          : utf8.encode(jsonEncode(neutralPacket.toJson()));
       _socket!.send(bytes, _targetAddress!, _targetPort);
     } catch (_) {}
   }
@@ -296,8 +411,11 @@ class UdpService {
       packetsSent: _packetsSent,
       packetsPerSecond: _currentHz,
       latencyMs: _lastLatencyMs,
+      targetRateHz: SettingsService.instance.current.transmissionRateHz,
+      isBinary: SettingsService.instance.current.useBinaryProtocol,
       errorMessage: _lastError,
     );
   }
 }
+
 

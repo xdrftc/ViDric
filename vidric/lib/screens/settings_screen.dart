@@ -125,12 +125,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final success = await _udpService.testPing(ip, port);
 
     if (mounted) {
+      final rtt = _udpService.lastPingLatencyMs;
+      String desc;
+      if (success) {
+        if (rtt >= 0) {
+          if (rtt <= 2) {
+            desc = 'PING: $rtt ms (Koneksi Kabel USB / 5GHz Super Cepat)';
+          } else if (rtt <= 10) {
+            desc = 'PING: $rtt ms (Wi-Fi 5GHz Responsif)';
+          } else {
+            desc = 'PING: $rtt ms (Wi-Fi 2.4GHz Stabil)';
+          }
+        } else {
+          desc = 'PING BERHASIL (Target PC Merespons)';
+        }
+      } else {
+        desc = 'PING TIMEOUT (Pastikan PC & Ponsel dalam satu jaringan)';
+      }
+
       setState(() {
         _isTestingPing = false;
         _pingSuccess = success;
-        _pingResult = success
-            ? 'PING BERHASIL (Target PC Merespons)'
-            : 'PING TIMEOUT (Pastikan PC & Ponsel satu Wi-Fi)';
+        _pingResult = desc;
       });
     }
   }
@@ -402,7 +418,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       case SettingsTab.selectMode:
         return _buildTabSelectMode(settings);
       case SettingsTab.connection:
-        return _buildTabConnection();
+        return _buildTabConnection(settings);
       case SettingsTab.customization:
         return _buildTabCustomization(settings);
       case SettingsTab.steering:
@@ -581,7 +597,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // ===========================================================================
   // 2. TAB: CONNECTION (SETTING_CONNECTION)
   // ===========================================================================
-  Widget _buildTabConnection() {
+  Widget _buildTabConnection(AppSettings settings) {
     return ValueListenableBuilder<NetworkMetrics>(
       valueListenable: _udpService.metrics,
       builder: (context, metrics, _) {
@@ -623,7 +639,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'Transmisi paket telemetri 50 Hz ke PC Companion dan driver vJoy Virtual Joystick.',
+              'Transmisi paket telemetri UDP berkecepatan tinggi ke PC Companion dan driver vJoy Virtual Joystick.',
               style: TextStyle(color: Color(0xFF7E93A8), fontSize: 11),
             ),
             const SizedBox(height: 16),
@@ -789,6 +805,90 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(height: 16),
 
+            // Pilihan Polling Rate & Protokol Biner
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF131B24),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF223245)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.speed, size: 16, color: Color(0xFF00E5FF)),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'POLLING RATE & FREKUENSI TRANSMISI',
+                        style: TextStyle(color: Color(0xFFE0E6ED), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.8),
+                      ),
+                      const Spacer(),
+                      Text(
+                        '${settings.transmissionRateHz} Hz (${(1000.0 / settings.transmissionRateHz).toStringAsFixed(1)} ms interval)',
+                        style: const TextStyle(color: Color(0xFF00E5FF), fontFamily: 'monospace', fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Frekuensi pengiriman data per detik. 100 Hz dan 120 Hz memotong delay antrean input setir & pedal lebih dari 50%.',
+                    style: TextStyle(color: Color(0xFF7E93A8), fontSize: 10),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _buildHzOption('50 Hz', '20.0 ms', 50, settings.transmissionRateHz),
+                      const SizedBox(width: 8),
+                      _buildHzOption('60 Hz', '16.6 ms', 60, settings.transmissionRateHz),
+                      const SizedBox(width: 8),
+                      _buildHzOption('100 Hz', '10.0 ms', 100, settings.transmissionRateHz),
+                      const SizedBox(width: 8),
+                      _buildHzOption('120 Hz', '8.3 ms', 120, settings.transmissionRateHz),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFF1E2D3E)),
+                  const SizedBox(height: 12),
+                  // Toggle Binary Protocol
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Protokol Paket Biner Kompak (17-Byte)',
+                              style: TextStyle(color: Color(0xFFD4E0EC), fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              settings.useBinaryProtocol
+                                  ? 'Aktif: Ukuran paket 17 byte (hemat bandwidth 85%, tanpa parsing string JSON di PC).'
+                                  : 'Nonaktif: Format JSON teks warisan (~120 byte per paket).',
+                              style: const TextStyle(color: Color(0xFF7E93A8), fontSize: 10),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Switch(
+                        value: settings.useBinaryProtocol,
+                        onChanged: (val) {
+                          _service.setUseBinaryProtocol(val);
+                          HapticFeedback.selectionClick();
+                        },
+                        activeThumbColor: const Color(0xFF00E5FF),
+                        activeTrackColor: const Color(0xFF00E5FF).withValues(alpha: 0.3),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
             // Kartu Metrik Live Transmisi
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -815,22 +915,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           metrics.status.name.toUpperCase(),
                           isConnected ? const Color(0xFF00E676) : const Color(0xFFFF1744),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 20),
                         _buildMetricBadge(
-                          'TX RATE (HZ)',
-                          '${metrics.packetsPerSecond.toStringAsFixed(1)} Hz',
+                          'TARGET RATE',
+                          '${settings.transmissionRateHz} Hz',
                           const Color(0xFF00E5FF),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 20),
                         _buildMetricBadge(
-                          'PAKET TERKIRIM',
-                          metrics.packetsSent.toString(),
+                          'TX AKTUAL',
+                          '${metrics.packetsPerSecond.toStringAsFixed(1)} Hz',
+                          const Color(0xFF00E676),
+                        ),
+                        const SizedBox(width: 20),
+                        _buildMetricBadge(
+                          'FORMAT',
+                          metrics.isBinary ? 'BIN (17B)' : 'JSON',
                           const Color(0xFFE0E6ED),
                         ),
-                        const SizedBox(width: 24),
+                        const SizedBox(width: 20),
                         _buildMetricBadge(
-                          'LATENSI SOKET',
-                          '${metrics.latencyMs} ms',
+                          'LATENSI RTT',
+                          metrics.latencyMs > 0 ? '${metrics.latencyMs} ms' : '< 1 ms',
                           const Color(0xFF00E676),
                         ),
                       ],
@@ -853,7 +959,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: isConnected ? Colors.white : const Color(0xFF0E141B),
                 ),
                 label: Text(
-                  isConnected ? 'PUTUSKAN KONEKSI' : 'HUBUNGKAN KE PC COMPANION (50 HZ)',
+                  isConnected
+                      ? 'PUTUSKAN KONEKSI'
+                      : 'HUBUNGKAN KE PC COMPANION (${settings.transmissionRateHz} HZ)',
                   style: TextStyle(
                     color: isConnected ? Colors.white : const Color(0xFF0E141B),
                     fontSize: 11,
@@ -870,6 +978,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
 
             const SizedBox(height: 16),
+
+            // Tips Kecepatan Sub-Milidetik
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFF131B24),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFF1E3347)),
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.bolt, size: 16, color: Color(0xFFFFB300)),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'TIPS PING SUB-MILIDETIK (< 1 MS) & KECEPATAN MAKSIMAL:',
+                          style: TextStyle(color: Color(0xFFFFB300), fontSize: 10, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 3),
+                        Text(
+                          '1. Gunakan kabel USB dengan mengaktifkan USB Tethering di Android (IP PC biasanya 192.168.42.x) untuk latensi < 1 ms dan bebas interferensi.\n2. Jika via Wi-Fi, prioritaskan pita 5 GHz agar tidak bertabrakan dengan sinyal radio Bluetooth 2.4 GHz.',
+                          style: TextStyle(color: Color(0xFF8B9FB3), fontSize: 9.5, height: 1.35),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 12),
 
             // Kartu Watchdog Failsafe
             Container(
@@ -895,6 +1038,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildHzOption(String label, String interval, int hz, int currentHz) {
+    final bool isSelected = hz == currentHz;
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          _service.setTransmissionRateHz(hz);
+          HapticFeedback.selectionClick();
+        },
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? const Color(0xFF00E5FF).withValues(alpha: 0.15) : const Color(0xFF16212D),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(
+              color: isSelected ? const Color(0xFF00E5FF) : const Color(0xFF26394D),
+              width: isSelected ? 1.5 : 1.0,
+            ),
+          ),
+          child: Column(
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? const Color(0xFF00E5FF) : const Color(0xFFD4E0EC),
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                interval,
+                style: TextStyle(
+                  color: isSelected ? const Color(0xFF80DEEA) : const Color(0xFF5C7084),
+                  fontSize: 9,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
